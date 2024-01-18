@@ -1,4 +1,4 @@
-;;; kissrecents.el --- Simple and stupid replacements of built-in recentf  -*- lexical-binding: t; -*-
+;;; recentz.el --- Simple and stupid replacements of built-in recentf  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 kuanyui
 
@@ -7,7 +7,7 @@
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "29.1") (helm "3.9.3"))
 ;; Keywords: files
-;; Url: https://github.com/kuanyui/kissrecents.el
+;; Url: https://github.com/kuanyui/recentz.el
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -28,74 +28,75 @@
 
 ;; A KISS, DWIM replacement of `recentf'.
 ;;
-;;  - No cache. (data is merely a plaintext saved in `~/.emacs.d/.kissrecents-data`)
+;;  - No cache. (data is merely a plaintext saved in `~/.emacs.d/.recentz-data`)
 ;;  - Never lost any items after exiting, even killing Emacs.
 ;;  - Always synchronize recents list between multiple Emacs instances.
 ;;  - Supported list: files / directories / projects (directories controlled by VC, ex: `git`)
 ;;
 ;; Installation
 ;;
-;;     (require 'kissrecents)
-;;     (global-set-key (kbd "C-x C-r") 'kissrecents-files)
-;;     (global-set-key (kbd "C-x C-d") 'kissrecents-directories)
-;;     (global-set-key (kbd "C-x C-p") 'kissrecents-projects)
+;;     (require 'recentz)
+;;     (setq recentz-ignore-path-patterns '("/COMMIT_EDITMSG$" "~$" "/node_modules/"))
+;;     (global-set-key (kbd "C-x C-r") 'recentz-files)
+;;     (global-set-key (kbd "C-x C-d") 'recentz-directories)
+;;     (global-set-key (kbd "C-x C-p") 'recentz-projects)
 
 
 (require 'helm-core)
 (require 'cl-lib)
 
-(defvar kissrecents-vc-directory-names '(".git" ".hg" ".svn" ".bzr")
+(defvar recentz-vc-directory-names '(".git" ".hg" ".svn" ".bzr")
   "The folder name or file name to detect if a directory path is a
 VC-controlled folder. If so, this folder will be seems as a
 project.")
-(defvar kissrecents-data-file-path (file-name-concat user-emacs-directory ".kissrecents-data")
+(defvar recentz-data-file-path (file-name-concat user-emacs-directory ".recentz-data")
   "The path to store recents list file."
   )
-(defvar kissrecents-max-history
+(defvar recentz-max-history
   '((files . 100)
     (directories . 50)
     (projects . 30))
   "The maximum items amount for each types of recent items.")
 
-(defvar kissrecents-ignore-path-patterns
-  '("node_modules/.*")
+(defvar recentz-ignore-path-patterns
+  '("/COMMIT_EDITMSG$" "~$")
   "Exclude the item from recents list if its path match any of the
 regexp patterns.")
 
-(defun kissrecents--hookfn-find-file ()
-  (kissrecents-push 'files (buffer-file-name))
+(defun recentz--hookfn-find-file ()
+  (recentz-push 'files (buffer-file-name))
   )
 
-(defun kissrecents--hookfn-dired (&optional dirpath)
+(defun recentz--hookfn-dired (&optional dirpath)
   (if dirpath
       (setq dirpath (expand-file-name dirpath))
     (setq dirpath default-directory))
-  (kissrecents-push 'directories dirpath)
-  (if (kissrecents-directory-has-vc dirpath)
-      (kissrecents-push 'projects dirpath)))
+  (recentz-push 'directories dirpath)
+  (if (recentz-directory-has-vc dirpath)
+      (recentz-push 'projects dirpath)))
 
-(defun kissrecents-directory-has-vc (dirpath)
+(defun recentz-directory-has-vc (dirpath)
   (cl-some (lambda (vc-dir-name)
 	     (file-exists-p (file-name-concat dirpath vc-dir-name)))
-	   kissrecents-vc-directory-names))
+	   recentz-vc-directory-names))
 
-(defun kissrecents-parent-directory-has-vc (dirpath)
+(defun recentz-parent-directory-has-vc (dirpath)
   (cl-some (lambda (vc-dir-name)
 	     (locate-dominating-file dirpath vc-dir-name))
-	   kissrecents-vc-directory-names))
+	   recentz-vc-directory-names))
 
-(defun kissrecents--write-data-to-file (data)
-  (with-temp-file kissrecents-data-file-path
+(defun recentz--write-data-to-file (data)
+  (with-temp-file recentz-data-file-path
     (insert (prin1-to-string data))))
 
-(defun kissrecents--read-data-from-file ()
-  (if (not (file-exists-p kissrecents-data-file-path))
-      (kissrecents--write-data-to-file (kissrecents-fix-data nil)))
-  (kissrecents-fix-data (with-temp-buffer
-			  (insert-file-contents kissrecents-data-file-path)
+(defun recentz--read-data-from-file ()
+  (if (not (file-exists-p recentz-data-file-path))
+      (recentz--write-data-to-file (recentz-fix-data nil)))
+  (recentz-fix-data (with-temp-buffer
+			  (insert-file-contents recentz-data-file-path)
 			  (ignore-errors (read (current-buffer))))))
 
-(defun kissrecents-fix-data (data)
+(defun recentz-fix-data (data)
   (let ((final (if (listp data) data '())))
     (mapc (lambda (type)
 	    (if (not (assoc type final))
@@ -108,54 +109,54 @@ regexp patterns.")
 	  '(files directories projects))  ; types
     final))
 
-(defun kissrecents-path-should-be-ignore (path)
+(defun recentz-path-should-be-ignore (path)
   (cl-some (lambda (patt)
 	     (string-match patt path))
-	   kissrecents-ignore-path-patterns))
-(kissrecents-path-should-be-ignore "")
+	   recentz-ignore-path-patterns))
+(recentz-path-should-be-ignore "")
 
-(defun kissrecents-push (type path)
-  (if (kissrecents-path-should-be-ignore path)
+(defun recentz-push (type path)
+  (if (recentz-path-should-be-ignore path)
       ()
-    (let* ((all-data (kissrecents--read-data-from-file))
+    (let* ((all-data (recentz--read-data-from-file))
 	   (paths (alist-get type all-data))
-	   (expected-len (alist-get type kissrecents-max-history 30)))
+	   (expected-len (alist-get type recentz-max-history 30)))
       ;; setq again. Fuck the useless "destructive function". Indeed, destructive for user.
       (setq paths (cl-delete-duplicates paths :test #'equal))
       (setq paths (cl-delete path paths :test #'equal))
       (push path paths)
       (nbutlast paths (- (length paths) expected-len))  ; trim the list and keep expected length in head.
       (setf (alist-get type all-data) paths)
-      (kissrecents--write-data-to-file all-data)
+      (recentz--write-data-to-file all-data)
       )))
 
-(defun kissrecents-get (type)
-  (let* ((all-data (kissrecents--read-data-from-file))
+(defun recentz-get (type)
+  (let* ((all-data (recentz--read-data-from-file))
 	 (ori-paths (alist-get type all-data))
 	 (new-paths (cl-delete-if (lambda (path) (or (not (file-exists-p path))
-						     (kissrecents-path-should-be-ignore path)))
+						     (recentz-path-should-be-ignore path)))
 				  ori-paths)))
     ;; If some paths are deleted, write new data
     (when (not (eq (length ori-paths) (length new-paths)))
       (setf (alist-get type all-data) new-paths)
-      (kissrecents--write-data-to-file all-data))
+      (recentz--write-data-to-file all-data))
     new-paths))
 
-(defun kissrecents-get-helm-candidates (type)
+(defun recentz-get-helm-candidates (type)
   (mapcar (lambda (path)
 	    (cond ())
 	    )
-	  (kissrecents-get type)))
+	  (recentz-get type)))
 
-(add-hook 'find-file-hook 'kissrecents--hookfn-find-file)
-(add-hook 'find-directory-functions 'kissrecents--hookfn-dired)
+(add-hook 'find-file-hook 'recentz--hookfn-find-file)
+(add-hook 'find-directory-functions 'recentz--hookfn-dired)
 
 ;;;###autoload
-(defun kissrecents-files ()
+(defun recentz-files ()
   "List recently opened files."
   (interactive)
   (helm :sources (helm-build-sync-source "KISS Recent Files"
-		   :candidates (lambda () (kissrecents-get 'files))
+		   :candidates (lambda () (recentz-get 'files))
 		   :volatile t
 		   :action (lambda (str) (find-file str))
 		   )
@@ -163,26 +164,26 @@ regexp patterns.")
 	:prompt "Recent files: "))
 
 ;;;###autoload
-(defun kissrecents-projects ()
+(defun recentz-projects ()
   "List recently opened projects."
   (interactive)
   (helm :sources (helm-build-sync-source "KISS Recent Projects"
-		   :candidates (lambda () (kissrecents-get 'projects))
+		   :candidates (lambda () (recentz-get 'projects))
 		   :volatile t
 		   :action (lambda (str) (find-file str))
 		   )
 	:buffer "*KISS Recents*"
 	:prompt "Recent projects: "))
 ;;;###autoload
-(defun kissrecents-directories ()
+(defun recentz-directories ()
   "List recently opened directories."
   (interactive)
   (helm :sources (helm-build-sync-source "KISS Recent Directories"
-		   :candidates (lambda () (kissrecents-get 'directories))
+		   :candidates (lambda () (recentz-get 'directories))
 		   :volatile t
 		   :action (lambda (str) (find-file str))
 		   )
 	:buffer "*KISS Recents*"
 	:prompt "Recent directories: "))
 
-(provide 'kissrecents)
+(provide 'recentz)

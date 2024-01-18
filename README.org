@@ -1,32 +1,34 @@
-* =kissrecents= - A KISS replacement of built-in =recentf=
+* =recentz= - A KISS, minimalized replacement of built-in =recentf=
 ** Why
 
-Because the Emacs built-in =recentf= frustrate me over 10 years. I never understand what it is doing.
+Because the behaviors of Emacs built-in =recentf= has frustrated me over 10 years. I'm never able to understand what it is doing.
 
 ** What
 
-A simple and stupid recents list, without any incomprehensible behaviors, just like any other IDE or editor. (I've falled into self-doubt for years whenever thinking that I have to implement such feature for a text editor in 2024.)
+A simple and stupid recents list, without any confusing behaviors, just like any other IDE or editor. (I've falled into self-doubt for years whenever thinking that I have to implement such feature for a text editor in 2024.)
 
 *** Characteristics
 
-- No fucking cache. (data is merely a plaintext saved in =~/.emacs.d/.kissrecents-data=)
-- Never lost any items after exiting, even killing Emacs.
+- Never cache, even never store anything in memory. (Everything are stored as a plaintext file in =~/.emacs.d/.recentz-data=.)
+- Never lost any item after exiting Emacs. (Even unexpectedly exit)
 - Always synchronize recents list between multiple Emacs instances.
 - Supported list: files / directories / projects (directories controlled by VC, ex: =git=)
+- Always DWIM (Do what I mean) without any confusing behavior.
 
 ** Installation
 
 #+begin_src emacs-lisp
-(require 'kissrecents)
-(global-set-key (kbd "C-x C-r") 'kissrecents-files)
-(global-set-key (kbd "C-x C-d") 'kissrecents-directories)
-(global-set-key (kbd "C-x C-p") 'kissrecents-projects)
+(require 'recentz)
+(setq recentz-ignore-path-patterns '("/COMMIT_EDITMSG$" "~$" "/node_modules/"))
+(global-set-key (kbd "C-x C-r") 'recentz-files)
+(global-set-key (kbd "C-x C-d") 'recentz-directories)
+(global-set-key (kbd "C-x C-p") 'recentz-projects)
 #+end_src
 
-You may want to add =.kissrecents-data= into =.gitignore=:
+You may want to add =.recentz-data= into =.gitignore=:
 
 #+begin_src shell
-cd ~/.emacs.d && echo ".kissrecents-data" >> .gitignore
+cd ~/.emacs.d && echo ".recentz-data" >> .gitignore
 #+end_src
 
 ** License
