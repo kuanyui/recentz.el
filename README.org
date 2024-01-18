@@ -9,20 +9,27 @@ A simple and stupid recents list, without any confusing behaviors, just like any
 
 *** Characteristics
 
+- Minimalized, no confusing behavior, no extra dependency. Fuzzy search is provided by Ido or Helm.
 - Never cache, even never store anything in memory. (Everything are stored as a plaintext file in =~/.emacs.d/.recentz-data=.)
 - Never lost any item after exiting Emacs. (Even unexpectedly exit)
 - Always synchronize recents list between multiple Emacs instances.
 - Supported list: files / directories / projects (directories controlled by VC, ex: =git=)
-- Always DWIM (Do what I mean) without any confusing behavior.
 
 ** Installation
 
 #+begin_src emacs-lisp
 (require 'recentz)
 (setq recentz-ignore-path-patterns '("/COMMIT_EDITMSG$" "~$" "/node_modules/"))
+
+;; If you prefer (Emacs built-in) IDO
 (global-set-key (kbd "C-x C-r") 'recentz-files)
 (global-set-key (kbd "C-x C-d") 'recentz-directories)
 (global-set-key (kbd "C-x C-p") 'recentz-projects)
+
+;; If you prefer Helm
+(global-set-key (kbd "C-x C-r") 'helm-recentz-files)
+(global-set-key (kbd "C-x C-d") 'helm-recentz-directories)
+(global-set-key (kbd "C-x C-p") 'helm-recentz-projects)
 #+end_src
 
 You may want to add =.recentz-data= into =.gitignore=:

@@ -1,4 +1,4 @@
-;;; recentz.el --- Simple and stupid replacements of built-in recentf  -*- lexical-binding: t; -*-
+;;; recentz.el --- Minimalized and KISS replacements of built-in recentf  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 kuanyui
 
@@ -28,21 +28,27 @@
 
 ;; A KISS, DWIM replacement of `recentf'.
 ;;
-;;  - No cache. (data is merely a plaintext saved in `~/.emacs.d/.recentz-data`)
-;;  - Never lost any items after exiting, even killing Emacs.
+;;  - Minimalized, no confusing behavior, no extra dependency. Fuzzy search is provided by Ido or Helm.
+;;  - Never cache, even never store anything in memory. (Everything are stored as a plaintext file in =~/.emacs.d/.recentz-data=.)
+;;  - Never lost any item after exiting Emacs. (Even unexpectedly exit)
 ;;  - Always synchronize recents list between multiple Emacs instances.
-;;  - Supported list: files / directories / projects (directories controlled by VC, ex: `git`)
+;;  - Supported list: files / directories / projects (directories controlled by VC, ex: =git=)
 ;;
 ;; Installation
 ;;
 ;;     (require 'recentz)
 ;;     (setq recentz-ignore-path-patterns '("/COMMIT_EDITMSG$" "~$" "/node_modules/"))
+;;
+;;     ;; If you prefer (Emacs built-in) Ido
 ;;     (global-set-key (kbd "C-x C-r") 'recentz-files)
 ;;     (global-set-key (kbd "C-x C-d") 'recentz-directories)
 ;;     (global-set-key (kbd "C-x C-p") 'recentz-projects)
+;;
+;;     ;; If you prefer Helm
+;;     (global-set-key (kbd "C-x C-r") 'helm-recentz-files)
+;;     (global-set-key (kbd "C-x C-d") 'helm-recentz-directories)
+;;     (global-set-key (kbd "C-x C-p") 'helm-recentz-projects)
 
-
-(require 'helm-core)
 (require 'cl-lib)
 
 (defvar recentz-vc-directory-names '(".git" ".hg" ".svn" ".bzr")
@@ -62,18 +68,6 @@ project.")
   '("/COMMIT_EDITMSG$" "~$")
   "Exclude the item from recents list if its path match any of the
 regexp patterns.")
-
-(defun recentz--hookfn-find-file ()
-  (recentz-push 'files (buffer-file-name))
-  )
-
-(defun recentz--hookfn-dired (&optional dirpath)
-  (if dirpath
-      (setq dirpath (expand-file-name dirpath))
-    (setq dirpath default-directory))
-  (recentz-push 'directories dirpath)
-  (if (recentz-directory-has-vc dirpath)
-      (recentz-push 'projects dirpath)))
 
 (defun recentz-directory-has-vc (dirpath)
   (cl-some (lambda (vc-dir-name)
@@ -148,6 +142,17 @@ regexp patterns.")
 	    )
 	  (recentz-get type)))
 
+(defun recentz--hookfn-find-file ()
+  (recentz-push 'files (buffer-file-name)))
+
+(defun recentz--hookfn-dired (&optional dirpath)
+  (if dirpath
+      (setq dirpath (expand-file-name dirpath))
+    (setq dirpath default-directory))
+  (recentz-push 'directories dirpath)
+  (if (recentz-directory-has-vc dirpath)
+      (recentz-push 'projects dirpath)))
+
 (add-hook 'find-file-hook 'recentz--hookfn-find-file)
 (add-hook 'find-directory-functions 'recentz--hookfn-dired)
 
@@ -155,35 +160,67 @@ regexp patterns.")
 (defun recentz-files ()
   "List recently opened files."
   (interactive)
-  (helm :sources (helm-build-sync-source "KISS Recent Files"
-		   :candidates (lambda () (recentz-get 'files))
-		   :volatile t
-		   :action (lambda (str) (find-file str))
-		   )
-	:buffer "*KISS Recents*"
-	:prompt "Recent files: "))
+  (require 'ido)
+  (find-file (ido-completing-read "Recentz Files: " (recentz-get 'files) nil t)))
 
 ;;;###autoload
 (defun recentz-projects ()
   "List recently opened projects."
   (interactive)
-  (helm :sources (helm-build-sync-source "KISS Recent Projects"
-		   :candidates (lambda () (recentz-get 'projects))
-		   :volatile t
-		   :action (lambda (str) (find-file str))
-		   )
-	:buffer "*KISS Recents*"
-	:prompt "Recent projects: "))
+  (require 'ido)
+  (find-file (ido-completing-read "Recentz Projects: " (recentz-get 'projects) nil t)))
+
 ;;;###autoload
 (defun recentz-directories ()
   "List recently opened directories."
   (interactive)
-  (helm :sources (helm-build-sync-source "KISS Recent Directories"
-		   :candidates (lambda () (recentz-get 'directories))
-		   :volatile t
-		   :action (lambda (str) (find-file str))
-		   )
-	:buffer "*KISS Recents*"
-	:prompt "Recent directories: "))
+  (require 'ido)
+  (find-file (ido-completing-read "Recentz Directories: " (recentz-get 'directories) nil t)))
+
+(defmacro recentz-ensure-helm (&rest body)
+  `(if (not (featurep 'helm-core))
+       (message "This feature requires helm-core, but it's not installed on your Emacs yet. Please install helm, or use ido version (M-x recentz-*) instead.")
+     (progn
+       (require 'helm-core)
+       ,@body)))
+
+;;;###autoload
+(defun helm-recentz-files ()
+  "List recently opened files."
+  (interactive)
+  (recentz-ensure-helm
+   (helm :sources (helm-build-sync-source "Recentz Files"
+		    :candidates (lambda () (recentz-get 'files))
+		    :volatile t
+		    :action (lambda (str) (find-file str))
+		    )
+	 :buffer "*Recentz*"
+	 :prompt "Recent files: ")))
+
+;;;###autoload
+(defun helm-recentz-projects ()
+  "List recently opened projects."
+  (interactive)
+  (recentz-ensure-helm
+   (helm :sources (helm-build-sync-source "Recentz Projects"
+		    :candidates (lambda () (recentz-get 'projects))
+		    :volatile t
+		    :action (lambda (str) (find-file str))
+		    )
+	 :buffer "*Recentz*"
+	 :prompt "Recent projects: ")))
+
+;;;###autoload
+(defun helm-recentz-directories ()
+  "List recently opened directories."
+  (interactive)
+  (recentz-ensure-helm
+   (helm :sources (helm-build-sync-source "KISS Recentz Directories"
+		    :candidates (lambda () (recentz-get 'directories))
+		    :volatile t
+		    :action (lambda (str) (find-file str))
+		    )
+	 :buffer "*KISS Recentz*"
+	 :prompt "Recent directories: ")))
 
 (provide 'recentz)
