@@ -5,7 +5,7 @@
 ;; Author: kuanyui <azazabc123@gmail.com>
 ;; License: GPLv3
 ;; Version: 0.1
-;; Package-Requires: ((emacs "29.1") (helm "3.9.3"))
+;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: files
 ;; Url: https://github.com/kuanyui/recentz.el
 
@@ -59,13 +59,19 @@ project.")
   "The path to store recents list file."
   )
 (defvar recentz-max-history
-  '((files . 100)
+  '((files . 150)
     (directories . 50)
-    (projects . 30))
+    (projects . 50))
   "The maximum items amount for each types of recent items.")
 
 (defvar recentz-ignore-path-patterns
-  '("/COMMIT_EDITMSG$" "~$")
+  '(
+    "/COMMIT_EDITMSG$"
+    "~$"
+    ".+org-clock-save\\.el$"
+    "\\.eln$"
+    "\\.elc$"
+    )
   "Exclude the item from recents list if its path match any of the
 regexp patterns.")
 
