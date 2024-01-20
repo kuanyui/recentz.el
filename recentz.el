@@ -71,6 +71,8 @@ project.")
     ".+org-clock-save\\.el$"
     "\\.eln$"
     "\\.elc$"
+    "\\.emacs\\.d/session\\.[a-z0-9]\\{10\\}"
+    "\\.git/objects/"
     )
   "Exclude the item from recents list if its path match any of the
 regexp patterns.")
