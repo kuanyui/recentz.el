@@ -77,14 +77,16 @@ project.")
   "Exclude the item from recents list if its path match any of the
 regexp patterns.")
 
-(defun recentz-directory-has-vc (dirpath)
+(defun recentz-is-vc-root (dirpath)
   (cl-some (lambda (vc-dir-name)
 	     (file-exists-p (file-name-concat dirpath vc-dir-name)))
 	   recentz-vc-directory-names))
 
-(defun recentz-parent-directory-has-vc (dirpath)
+(defun recentz-find-vc-root (filepath)
+  "If the FILEPATH (or dirpath) is inside in, or itself is, a
+version control repo, return the path of repo root folder."
   (cl-some (lambda (vc-dir-name)
-	     (locate-dominating-file dirpath vc-dir-name))
+	     (locate-dominating-file filepath vc-dir-name))
 	   recentz-vc-directory-names))
 
 (defun recentz--write-data-to-file (data)
@@ -95,8 +97,8 @@ regexp patterns.")
   (if (not (file-exists-p recentz-data-file-path))
       (recentz--write-data-to-file (recentz-fix-data nil)))
   (recentz-fix-data (with-temp-buffer
-			  (insert-file-contents recentz-data-file-path)
-			  (ignore-errors (read (current-buffer))))))
+		      (insert-file-contents recentz-data-file-path)
+		      (ignore-errors (read (current-buffer))))))
 
 (defun recentz-fix-data (data)
   (let ((final (if (listp data) data '())))
@@ -126,6 +128,8 @@ regexp patterns.")
       ;; setq again. Fuck the useless "destructive function". Indeed, destructive for user.
       (setq paths (cl-delete-duplicates paths :test #'equal))
       (setq paths (cl-delete path paths :test #'equal))
+      (if (file-directory-p path)
+	  (setq path (file-name-as-directory path)))  ; Append a slash if path is a dir
       (push path paths)
       (nbutlast paths (- (length paths) expected-len))  ; trim the list and keep expected length in head.
       (setf (alist-get type all-data) paths)
@@ -151,15 +155,21 @@ regexp patterns.")
 	  (recentz-get type)))
 
 (defun recentz--hookfn-find-file ()
-  (recentz-push 'files (buffer-file-name)))
+  (recentz-push 'files (buffer-file-name))
+  ;; If current file is inside a VCS repo, also add the repo directory as project.
+  (let* ((cur-dir (file-name-directory (buffer-file-name)))
+	 (repo-dir (recentz-find-vc-root cur-dir)))
+    (if repo-dir
+	(recentz-push 'projects repo-dir))))
 
 (defun recentz--hookfn-dired (&optional dirpath)
   (if dirpath
       (setq dirpath (expand-file-name dirpath))
     (setq dirpath default-directory))
   (recentz-push 'directories dirpath)
-  (if (recentz-directory-has-vc dirpath)
-      (recentz-push 'projects dirpath)))
+  (let ((vc-root (recentz-find-vc-root dirpath)))
+    (if vc-root
+	(recentz-push 'projects vc-root))))
 
 (add-hook 'find-file-hook 'recentz--hookfn-find-file)
 (add-hook 'find-directory-functions 'recentz--hookfn-dired)
