@@ -89,6 +89,12 @@ version control repo, return the path of repo root folder."
 	     (locate-dominating-file filepath vc-dir-name))
 	   recentz-vc-directory-names))
 
+(defun recentz-formalize-path (path)
+  "If PATH is a dir, append a slash."
+  (if (file-directory-p path)
+      (file-name-as-directory path)
+    path))
+
 (defun recentz--write-data-to-file (data)
   (with-temp-file recentz-data-file-path
     (insert (prin1-to-string data))))
@@ -128,8 +134,7 @@ version control repo, return the path of repo root folder."
       ;; setq again. Fuck the useless "destructive function". Indeed, destructive for user.
       (setq paths (cl-delete-duplicates paths :test #'equal))
       (setq paths (cl-delete path paths :test #'equal))
-      (if (file-directory-p path)
-	  (setq path (file-name-as-directory path)))  ; Append a slash if path is a dir
+      (setq path (recentz-formalize-path path))
       (push path paths)
       (nbutlast paths (- (length paths) expected-len))  ; trim the list and keep expected length in head.
       (setf (alist-get type all-data) paths)
@@ -141,9 +146,12 @@ version control repo, return the path of repo root folder."
 	 (ori-paths (alist-get type all-data))
 	 (new-paths (cl-delete-if (lambda (path) (or (not (file-exists-p path))
 						     (recentz-path-should-be-ignore path)))
-				  ori-paths)))
-    ;; If some paths are deleted, write new data
-    (when (not (eq (length ori-paths) (length new-paths)))
+				  ori-paths))
+	 (new-paths (mapcar #'recentz-formalize-path new-paths))   ; migration from old version
+	 (new-paths (cl-delete-duplicates new-paths :test #'equal))   ; migration from old version
+	 )
+    ;; If two paths list are not equal (NOTE: Lisp's `equal' can compare list elements), write new data
+    (when (not (equal ori-paths new-paths))
       (setf (alist-get type all-data) new-paths)
       (recentz--write-data-to-file all-data))
     new-paths))
@@ -233,12 +241,12 @@ version control repo, return the path of repo root folder."
   "List recently opened directories."
   (interactive)
   (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "KISS Recentz Directories"
+   (helm :sources (helm-build-sync-source "Recentz Directories"
 		    :candidates (lambda () (recentz-get 'directories))
 		    :volatile t
 		    :action (lambda (str) (find-file str))
 		    )
-	 :buffer "*KISS Recentz*"
+	 :buffer "*Recentz*"
 	 :prompt "Recent directories: ")))
 
 (provide 'recentz)
