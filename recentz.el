@@ -91,6 +91,7 @@ version control repo, return the path of repo root folder."
 
 (defun recentz-formalize-path (path)
   "If PATH is a dir, append a slash."
+  (setq path (expand-file-name path))
   (if (file-directory-p path)
       (file-name-as-directory path)
     path))
