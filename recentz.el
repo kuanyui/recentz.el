@@ -180,8 +180,20 @@ version control repo, return the path of repo root folder."
     (if vc-root
 	(recentz-push 'projects vc-root))))
 
+(defun recentz--hookfn-vc (&optional dirpath)
+  (if dirpath
+      (setq dirpath (expand-file-name dirpath))
+    (setq dirpath default-directory))
+  (recentz-push 'directories dirpath)
+  (let ((vc-root (recentz-find-vc-root dirpath)))
+    (if vc-root
+	(recentz-push 'projects vc-root))))
+
 (add-hook 'find-file-hook 'recentz--hookfn-find-file)
 (add-hook 'find-directory-functions 'recentz--hookfn-dired)
+(with-eval-after-load 'magit
+  (add-hook 'magit-status-mode-hook 'recentz--hookfn-vc)
+  )
 
 ;;;###autoload
 (defun recentz-files ()
