@@ -189,11 +189,26 @@ version control repo, return the path of repo root folder."
     (if vc-root
 	(recentz-push 'projects vc-root))))
 
+(defun recentz--hookfn-emacs-startup ()
+  ;;   (message "====================
+  ;; %S
+  ;; file name: %s
+  ;; major mode: %s
+  ;; ========================"
+  ;;   command-line-args
+  ;;   (buffer-file-name)
+  ;;   major-mode)
+  (let ((is-folder (equal major-mode 'dired-mode))
+	(is-file (buffer-file-name)))
+    (cond (is-folder (recentz--hookfn-dired default-directory))
+	  (is-file (recentz--hookfn-find-file (buffer-file-name))))))
+
 (add-hook 'find-file-hook 'recentz--hookfn-find-file)
 (add-hook 'find-directory-functions 'recentz--hookfn-dired)
 (with-eval-after-load 'magit
   (add-hook 'magit-status-mode-hook 'recentz--hookfn-vc)
   )
+(add-hook 'emacs-startup-hook 'recentz--hookfn-emacs-startup)
 
 ;;;###autoload
 (defun recentz-files ()
