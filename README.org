@@ -1,19 +1,20 @@
 * =recentz= - A KISS, minimalized replacement of built-in =recentf=
 ** Why
 
-Because the behaviors of Emacs built-in =recentf= has frustrated me over 10 years. I'm never able to understand what it is doing.
+Because the behaviors of Emacs built-in =recentf= has frustrated me for over 10 years. I'm never able to understand what on earth it is doing.
 
 ** What
 
-A simple and stupid recents list, without any confusing behaviors, just like any other IDE or editor. (I've falled into self-doubt for years whenever thinking that I have to implement such feature for a text editor in 2024.)
+A simple and stupid recents list, without any confusing behaviors -- just do what you mean, like any other IDE or editor. (I've falled into self-doubt for years whenever thinking that I have to implement such feature for a text editor in 2024.)
 
 *** Characteristics
 
-- Minimalized, no confusing behavior, no extra dependency. Fuzzy search is provided by Ido or Helm.
-- Never cache, even never store anything in memory. (Everything are stored as a plaintext file in =~/.emacs.d/.recentz-data=.)
-- Never lost any item after exiting Emacs. (Even unexpectedly exit)
-- Always synchronize recents list between multiple Emacs instances.
-- Supported list: files / directories / projects (directories controlled by VC, ex: =git=)
+- Minimalized, no confusing behavior, no extra dependency (only relys on `cl-lib`). Fuzzy search is provided by Ido (Emacs built-in) or Helm (need installation).
+- Never caches, even never stores anything in memory. (Everything are stored as a plaintext file in =~/.emacs.d/.recentz-data=.)
+- Never loses any item after exiting Emacs. (Even an unexpected exit or crash)
+- Always synchronized recents list between multiple Emacs instances.
+- Always automatically removes items which is no longer existed in file system.
+- Recorded lists: files / directories / projects (directories controlled by VC, ex: =git=)
 
 ** Installation
 
@@ -32,7 +33,7 @@ A simple and stupid recents list, without any confusing behaviors, just like any
 (global-set-key (kbd "C-x C-p") 'helm-recentz-projects)
 #+end_src
 
-You may want to add =.recentz-data= into =.gitignore=:
+You may also want to add =.recentz-data= into =.gitignore=, if you manage your =.emacs.d= via =git=:
 
 #+begin_src shell
 cd ~/.emacs.d && echo ".recentz-data" >> .gitignore
