@@ -50,6 +50,7 @@
 ;;     (global-set-key (kbd "C-x C-p") 'helm-recentz-projects)
 
 (require 'cl-lib)
+(require 'pp)
 
 (defvar recentz-vc-directory-names '(".git" ".hg" ".svn" ".bzr")
   "The folder name or file name to detect if a directory path is a
@@ -98,7 +99,9 @@ version control repo, return the path of repo root folder."
 
 (defun recentz--write-data-to-file (data)
   (with-temp-file recentz-data-file-path
-    (insert (prin1-to-string data))))
+    (insert ";; -*- mode: lisp-data -*-\n")
+    (insert (pp-to-string data))  ;; prin1-to-string is too hard to read
+    ))
 
 (defun recentz--read-data-from-file ()
   (if (not (file-exists-p recentz-data-file-path))
