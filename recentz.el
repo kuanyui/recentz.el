@@ -124,7 +124,6 @@ version control repo, return the path of repo root folder."
   (cl-some (lambda (patt)
 	     (string-match patt path))
 	   recentz-ignore-path-patterns))
-(recentz-path-should-be-ignore "")
 
 (defun recentz-push (type path)
   (if (recentz-path-should-be-ignore path)
@@ -132,10 +131,10 @@ version control repo, return the path of repo root folder."
     (let* ((all-data (recentz--read-data-from-file))
 	   (paths (alist-get type all-data))
 	   (expected-len (alist-get type recentz-max-history 30)))
+      (setq path (recentz-formalize-path path))
       ;; setq again. Fuck the useless "destructive function". Indeed, destructive for user.
       (setq paths (cl-delete-duplicates paths :test #'equal))
       (setq paths (cl-delete path paths :test #'equal))
-      (setq path (recentz-formalize-path path))
       (push path paths)
       (nbutlast paths (- (length paths) expected-len))  ; trim the list and keep expected length in head.
       (setf (alist-get type all-data) paths)
