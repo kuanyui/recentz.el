@@ -304,25 +304,31 @@ path exists or not)"
 (add-hook 'emacs-startup-hook 'recentz--hookfn-emacs-startup)
 
 ;;;###autoload
-(defun recentz-files ()
+(defun recentz-files (&optional arg)
   "List recently opened files."
-  (interactive)
+  (interactive "P")
   (require 'ido)
-  (find-file (ido-completing-read "Recentz Files: " (recentz-get 'files) nil t)))
+  (if arg
+      (recentz-tramp-files)
+    (find-file (ido-completing-read "Recentz Files: " (recentz-get 'files) nil t))))
 
 ;;;###autoload
-(defun recentz-projects ()
+(defun recentz-projects (&optional arg)
   "List recently opened projects."
-  (interactive)
+  (interactive "P")
   (require 'ido)
-  (find-file (ido-completing-read "Recentz Projects: " (recentz-get 'projects) nil t)))
+  (if arg
+      (recentz-tramp-projects)
+    (find-file (ido-completing-read "Recentz Projects: " (recentz-get 'projects) nil t))))
 
 ;;;###autoload
-(defun recentz-directories ()
+(defun recentz-directories (&optional arg)
   "List recently opened directories."
-  (interactive)
+  (interactive "P")
   (require 'ido)
-  (find-file (ido-completing-read "Recentz Directories: " (recentz-get 'directories) nil t)))
+  (if arg
+      (recentz-tramp-directories)
+    (find-file (ido-completing-read "Recentz Directories: " (recentz-get 'directories) nil t))))
 
 ;;;###autoload
 (defun recentz-tramp-files ()
@@ -353,43 +359,49 @@ path exists or not)"
        ,@body)))
 
 ;;;###autoload
-(defun helm-recentz-files ()
+(defun helm-recentz-files (&optional arg)
   "List recently opened files."
-  (interactive)
-  (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Files"
-		    :candidates (lambda () (recentz-get 'files))
-		    :volatile t
-		    :action (lambda (str) (find-file str))
-		    )
-	 :buffer "*Recentz*"
-	 :prompt "Recent files: ")))
+  (interactive "P")
+  (if arg
+      (helm-recentz-tramp-files)
+    (recentz-ensure-helm
+     (helm :sources (helm-build-sync-source "Recentz Files"
+		      :candidates (lambda () (recentz-get 'files))
+		      :volatile t
+		      :action (lambda (str) (find-file str))
+		      )
+	   :buffer "*Recentz*"
+	   :prompt "Recent files: "))))
 
 ;;;###autoload
-(defun helm-recentz-projects ()
+(defun helm-recentz-projects (&optional arg)
   "List recently opened projects."
-  (interactive)
-  (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Projects"
-		    :candidates (lambda () (recentz-get 'projects))
-		    :volatile t
-		    :action (lambda (str) (find-file str))
-		    )
-	 :buffer "*Recentz*"
-	 :prompt "Recent projects: ")))
+  (interactive "P")
+  (if arg
+      (helm-recentz-tramp-projects)
+    (recentz-ensure-helm
+     (helm :sources (helm-build-sync-source "Recentz Projects"
+		      :candidates (lambda () (recentz-get 'projects))
+		      :volatile t
+		      :action (lambda (str) (find-file str))
+		      )
+	   :buffer "*Recentz*"
+	   :prompt "Recent projects: "))))
 
 ;;;###autoload
-(defun helm-recentz-directories ()
+(defun helm-recentz-directories (&optional arg)
   "List recently opened directories."
-  (interactive)
-  (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Directories"
-		    :candidates (lambda () (recentz-get 'directories))
-		    :volatile t
-		    :action (lambda (str) (find-file str))
-		    )
-	 :buffer "*Recentz*"
-	 :prompt "Recent directories: ")))
+  (interactive "P")
+  (if arg
+      (helm-recentz-tramp-directories)
+    (recentz-ensure-helm
+     (helm :sources (helm-build-sync-source "Recentz Directories"
+		      :candidates (lambda () (recentz-get 'directories))
+		      :volatile t
+		      :action (lambda (str) (find-file str))
+		      )
+	   :buffer "*Recentz*"
+	   :prompt "Recent directories: "))))
 
 ;;;###autoload
 (defun helm-recentz-tramp-files ()
