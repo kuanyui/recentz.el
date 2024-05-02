@@ -18,7 +18,7 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 
 > [!NOTE]
 > 1. `Recentz` always check the availabiliy (via `file-exists-p`) of each items in the list (and remove the non-existent-anymore items), so it should be better to run on SSD if you set a large items amount limit.
-> 2. On the other hamd, the availability of the items opened via TRAMP will never be checked nor removed.
+> 2. On the other hand, the availability of the items opened via TRAMP will never be checked nor removed.
 
 ## Installation
 
@@ -42,6 +42,30 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 (global-set-key (kbd "C-x C-S-d") 'helm-recentz-tramp-directories)
 (global-set-key (kbd "C-x C-S-p") 'helm-recentz-tramp-projects)
 ```
+
+> [!TIP]
+> 1. Ido and Helm have different UI and searching behaviors, you can try both and choose the one you prefer.
+> 2. You don't need to enable `ido-mode` nor `helm-mode` globally. `recentz` only use their minibuffer completion feature, for easily filtering candidates list.
+>
+> #### For Ido Users
+>
+> Recommanded setups:
+> ```emacs-lisp
+> ;; Show Ido items vertically
+> (setq ido-decorations (quote ("\n-> " "" "\n   " "\n   ..." "[" "]" " [No match]" " [Matched]" " [Not readable]" " [Too big]" " [Confirm]")))
+>
+> ;; Use up/down keys to navigate among Ido candidates
+> (defun my-ido-bind-key-for-vertical ()
+>   "Keybindings for vertically-displayed ido-mode candidates list.
+> (Use up/down to navigate among candidates)"
+>   (define-key ido-completion-map (kbd "<down>") 'ido-next-match)
+>   (define-key ido-completion-map (kbd "<up>")   'ido-prev-match))
+> (add-hook 'ido-setup-hook #'my-ido-bind-key-for-vertical)
+> ```
+>
+> #### For Helm Users
+>
+> Nothing special extra setting needs. Helm itself has already included Universe by default.
 
 You may also want to add `.recentz-data` into `.gitignore`, if you manage your `.emacs.d` via `git`:
 
