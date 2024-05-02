@@ -43,11 +43,17 @@
 ;;     (global-set-key (kbd "C-x C-r") 'recentz-files)
 ;;     (global-set-key (kbd "C-x C-d") 'recentz-directories)
 ;;     (global-set-key (kbd "C-x C-p") 'recentz-projects)
+;;     (global-set-key (kbd "C-x C-S-r") 'recentz-tramp-files)
+;;     (global-set-key (kbd "C-x C-S-d") 'recentz-tramp-directories)
+;;     (global-set-key (kbd "C-x C-S-p") 'recentz-tramp-projects)
 ;;
 ;;     ;; If you prefer Helm
 ;;     (global-set-key (kbd "C-x C-r") 'helm-recentz-files)
 ;;     (global-set-key (kbd "C-x C-d") 'helm-recentz-directories)
 ;;     (global-set-key (kbd "C-x C-p") 'helm-recentz-projects)
+;;     (global-set-key (kbd "C-x C-S-r") 'helm-recentz-tramp-files)
+;;     (global-set-key (kbd "C-x C-S-d") 'helm-recentz-tramp-directories)
+;;     (global-set-key (kbd "C-x C-S-p") 'helm-recentz-tramp-projects)
 
 (require 'cl-lib)
 (require 'pp)
@@ -82,7 +88,7 @@ project.")
   "Exclude the item from recents list if its path match any of the
 regexp patterns.")
 
-(defvar recentz-extrenal-path-patterns
+(defvar recentz-tramp-path-patterns
   '(
     "/-:"
     "^/\\(su\\|sudo\\|doas\\|sg\\|sudoedit\\):"
@@ -154,6 +160,12 @@ regexp patterns.")
 		       (ignore-errors (read (current-buffer)))))))
 
 (defun recentz-fix-data (data)
+  "DATA should be in the format of `recentz-data-file-path' (a assoc
+list). This function will validate the data structure of this
+DATA and try to fix it to a valid structure then returns it.
+
+Note this function never check the content (e.g. whether the file
+path exists or not)"
   (let ((final (if (listp data) data '())))
     (mapc (lambda (type)
 	    (if (not (assoc type final))
@@ -175,7 +187,7 @@ regexp patterns.")
   "Returns t if file PATH is a TRAMP path."
   (cl-some (lambda (patt)
 	     (string-match patt path))
-	   recentz-extrenal-path-patterns))
+	   recentz-tramp-path-patterns))
 
 (defun recentz-file-exists-p (path)
   "Always returns t if the PATH is a TRAMP path."
@@ -203,6 +215,7 @@ regexp patterns.")
 (defun recentz-get (type)
   (let* ((all-data (recentz--read-data-from-file))
 	 (ori-paths (alist-get type all-data))
+	 ;; Remove inexistent items from list.
 	 (new-paths (cl-delete-if (lambda (path) (or (not (recentz-file-exists-p path))
 						     (recentz-path-should-be-ignore path)))
 				  ori-paths))
@@ -214,6 +227,22 @@ regexp patterns.")
       (setf (alist-get type all-data) new-paths)
       (recentz--write-data-to-file all-data))
     new-paths))
+
+(defun recentz-clear (&optional type)
+  "Manually clear recentz list by type.
+
+  If call interactively, this supports the following types only:
+  - tramp-files
+  - tramp-directories
+  - tramp-projects
+  "
+  (interactive)
+  (let* ((type (or type (intern (completing-read "Clear Recentz List: " '(tramp-files tramp-directories tramp-projects) nil t))))
+	 (all-data (recentz--read-data-from-file)))
+    (if (null type) (error "Please specify type."))
+    (setf (alist-get type all-data) '())
+    (recentz--write-data-to-file all-data)
+    (message "Clear list \"%s\"" type)))
 
 (defun recentz-get-helm-candidates (type)
   (mapcar (lambda (path)
@@ -300,21 +329,21 @@ regexp patterns.")
   "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
   (require 'ido)
-  (find-file (ido-completing-read "Recentz Files: " (recentz-get 'tramp-files) nil t)))
+  (find-file (ido-completing-read "Recentz Files in TRAMP: " (recentz-get 'tramp-files) nil t)))
 
 ;;;###autoload
 (defun recentz-tramp-projects ()
   "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
   (require 'ido)
-  (find-file (ido-completing-read "Recentz Projects: " (recentz-get 'tramp-projects) nil t)))
+  (find-file (ido-completing-read "Recentz Projects in TRAMP: " (recentz-get 'tramp-projects) nil t)))
 
 ;;;###autoload
 (defun recentz-tramp-directories ()
   "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
   (require 'ido)
-  (find-file (ido-completing-read "Recentz Directories: " (recentz-get 'tramp-directories) nil t)))
+  (find-file (ido-completing-read "Recentz Directories in TRAMP: " (recentz-get 'tramp-directories) nil t)))
 
 (defmacro recentz-ensure-helm (&rest body)
   `(if (not (featurep 'helm-core))
@@ -367,39 +396,39 @@ regexp patterns.")
   "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
   (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Files"
+   (helm :sources (helm-build-sync-source "Recentz Files in TRAMP"
 		    :candidates (lambda () (recentz-get 'files))
 		    :volatile t
 		    :action (lambda (str) (find-file str))
 		    )
 	 :buffer "*Recentz*"
-	 :prompt "Recent files: ")))
+	 :prompt "Recent files via TRAMP: ")))
 
 ;;;###autoload
 (defun helm-recentz-tramp-projects ()
   "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
   (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Projects"
+   (helm :sources (helm-build-sync-source "Recentz Projects in TRAMP"
 		    :candidates (lambda () (recentz-get 'projects))
 		    :volatile t
 		    :action (lambda (str) (find-file str))
 		    )
 	 :buffer "*Recentz*"
-	 :prompt "Recent projects: ")))
+	 :prompt "Recent projects via TRAMP: ")))
 
 ;;;###autoload
 (defun helm-recentz-tramp-directories ()
   "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
   (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Directories"
+   (helm :sources (helm-build-sync-source "Recentz Directories in TRAMP"
 		    :candidates (lambda () (recentz-get 'directories))
 		    :volatile t
 		    :action (lambda (str) (find-file str))
 		    )
 	 :buffer "*Recentz*"
-	 :prompt "Recent directories: ")))
+	 :prompt "Recent directories via TRAMP: ")))
 
 
 (provide 'recentz)
