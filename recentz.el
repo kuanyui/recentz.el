@@ -62,7 +62,11 @@ project.")
 (defvar recentz-max-history
   '((files . 150)
     (directories . 50)
-    (projects . 50))
+    (projects . 50)
+    (tramp-files . 200)
+    (tramp-directories . 50)
+    (tramp-projects . 50)
+    )
   "The maximum items amount for each types of recent items.")
 
 (defvar recentz-ignore-path-patterns
@@ -78,6 +82,29 @@ project.")
   "Exclude the item from recents list if its path match any of the
 regexp patterns.")
 
+(defvar recentz-extrenal-path-patterns
+  '(
+    "/-:"
+    "^/\\(su\\|sudo\\|doas\\|sg\\|sudoedit\\):"
+    "^/rsh:"
+    "^/sshx?:"
+    "^/\\(docker\\|ksu\\|kubernetes\\|podman\\):"
+    "^/\\(rsync\\|rcp\\|scp\\|scpx\\|pscp\\):"
+    "^/\\(ftp\\|psftp\\|fcp\\|smb\\):"
+    "^/adb:"
+    "^/\\(afp\\|davs?\\|mtp\\):"
+    "^/\\(gdrive\\|nextcloud\\|sftp\\):"
+    )
+  "Remote / tramp file paths list, ex: TRAMP, SSH, sudo, rsync.
+    These file pathes will be stored in an independent list, and
+    recentz will never check the availability of them.")
+
+(defvar recentz-data-file-modes #o666
+  "The file permission (file mode) of data-file (See
+						 `recent-data-file-path'). This is important if you mean to let
+    multiple users write the same data-file, or TRAMP... etc."
+  )
+
 (defun recentz-is-vc-root (dirpath)
   (cl-some (lambda (vc-dir-name)
 	     (file-exists-p (file-name-concat dirpath vc-dir-name)))
@@ -85,30 +112,46 @@ regexp patterns.")
 
 (defun recentz-find-vc-root (filepath)
   "If the FILEPATH (or dirpath) is inside in, or itself is, a
-version control repo, return the path of repo root folder."
+    version control repo, return the path of repo root folder."
   (cl-some (lambda (vc-dir-name)
 	     (locate-dominating-file filepath vc-dir-name))
 	   recentz-vc-directory-names))
 
-(defun recentz-formalize-path (path)
+(defun recentz-formalize-path (path &optional skip-tramp)
   "If PATH is a dir, append a slash."
   (setq path (expand-file-name path))
-  (if (file-directory-p path)
-      (file-name-as-directory path)
-    path))
+  (cond ((and skip-tramp (recentz-path-is-tramp-path path))
+	 path)
+	((file-directory-p path)
+	 (file-name-as-directory path))
+	(t
+	 path)))
+
+(defmacro recentz-ensure-data-file-permission (&rest body)
+  `(cond ((file-directory-p recentz-data-file-path)
+	  (message "You has set `recentz-data-file-path' as \"%s\" but it is a directory (expected a text file), please resolve it manually." recentz-data-file-path))
+	 ((not (file-readable-p recentz-data-file-path))
+	  (message "You have no permission to read recentz's data-file (\"%s\", defined in variable \"recentz-data-file-path\"), please resolve it manually." recentz-data-file-path))
+	 ((not (file-writable-p recentz-data-file-path))
+	  (message "You have no permission to write recentz's data-file (\"%s\", defined in variable \"recentz-data-file-path\"), please resolve it manually." recentz-data-file-path))
+	 (t ,@body)))
 
 (defun recentz--write-data-to-file (data)
-  (with-temp-file recentz-data-file-path
-    (insert ";; -*- mode: lisp-data -*-\n")
-    (insert (pp-to-string data))  ;; prin1-to-string is too hard to read
-    ))
+  (recentz-ensure-data-file-permission
+   (with-temp-file recentz-data-file-path
+     (insert ";; -*- mode: lisp-data -*-\n")
+     (insert (pp-to-string data))  ;; prin1-to-string is too hard to read
+     )
+   (ignore-errors
+     (set-file-modes recentz-data-file-path recentz-data-file-modes))))
 
 (defun recentz--read-data-from-file ()
-  (if (not (file-exists-p recentz-data-file-path))
-      (recentz--write-data-to-file (recentz-fix-data nil)))
-  (recentz-fix-data (with-temp-buffer
-		      (insert-file-contents recentz-data-file-path)
-		      (ignore-errors (read (current-buffer))))))
+  (recentz-ensure-data-file-permission
+   (if (not (file-exists-p recentz-data-file-path))
+       (recentz--write-data-to-file (recentz-fix-data nil)))
+   (recentz-fix-data (with-temp-buffer
+		       (insert-file-contents recentz-data-file-path)
+		       (ignore-errors (read (current-buffer)))))))
 
 (defun recentz-fix-data (data)
   (let ((final (if (listp data) data '())))
@@ -120,7 +163,7 @@ version control repo, return the path of repo root folder."
 		    (setf (alist-get type final) '()))
 		(cl-delete-if-not #'stringp (alist-get type final))  ; FIXME: potential error due to "destructive" cl-delete ...?
 		)))
-	  '(files directories projects))  ; types
+	  '(files directories projects tramp-files tramp-directories tramp-projects))  ; types
     final))
 
 (defun recentz-path-should-be-ignore (path)
@@ -128,29 +171,42 @@ version control repo, return the path of repo root folder."
 	     (string-match patt path))
 	   recentz-ignore-path-patterns))
 
+(defun recentz-path-is-tramp-path (path)
+  "Returns t if file PATH is a TRAMP path."
+  (cl-some (lambda (patt)
+	     (string-match patt path))
+	   recentz-extrenal-path-patterns))
+
+(defun recentz-file-exists-p (path)
+  "Always returns t if the PATH is a TRAMP path."
+  (if (recentz-path-is-tramp-path path)
+      t
+    (file-exists-p path)))
+
 (defun recentz-push (type path)
-  (if (recentz-path-should-be-ignore path)
-      ()
-    (let* ((all-data (recentz--read-data-from-file))
-	   (paths (alist-get type all-data))
-	   (expected-len (alist-get type recentz-max-history 30)))
-      (setq path (recentz-formalize-path path))
-      ;; setq again. Fuck the useless "destructive function". Indeed, destructive for user.
-      (setq paths (cl-delete-duplicates paths :test #'equal))
-      (setq paths (cl-delete path paths :test #'equal))
-      (push path paths)
-      (nbutlast paths (- (length paths) expected-len))  ; trim the list and keep expected length in head.
-      (setf (alist-get type all-data) paths)
-      (recentz--write-data-to-file all-data)
-      )))
+  (cond ((recentz-path-should-be-ignore path)
+	 ())
+	(t
+	 (let* ((all-data (recentz--read-data-from-file))
+		(paths (alist-get type all-data))
+		(expected-len (alist-get type recentz-max-history 30)))
+	   (setq path (recentz-formalize-path path))
+	   ;; setq again. Fuck the useless "destructive function". Indeed, destructive for user.
+	   (setq paths (cl-delete-duplicates paths :test #'equal))
+	   (setq paths (cl-delete path paths :test #'equal))
+	   (push path paths)
+	   (nbutlast paths (- (length paths) expected-len))  ; trim the list and keep expected length in head.
+	   (setf (alist-get type all-data) paths)
+	   (recentz--write-data-to-file all-data)
+	   ))))
 
 (defun recentz-get (type)
   (let* ((all-data (recentz--read-data-from-file))
 	 (ori-paths (alist-get type all-data))
-	 (new-paths (cl-delete-if (lambda (path) (or (not (file-exists-p path))
+	 (new-paths (cl-delete-if (lambda (path) (or (not (recentz-file-exists-p path))
 						     (recentz-path-should-be-ignore path)))
 				  ori-paths))
-	 (new-paths (mapcar #'recentz-formalize-path new-paths))   ; migration from old version
+	 (new-paths (mapcar (lambda (p) (recentz-formalize-path p :skip-tramp)) new-paths))   ; migration from old version
 	 (new-paths (cl-delete-duplicates new-paths :test #'equal))   ; migration from old version
 	 )
     ;; If two paths list are not equal (NOTE: Lisp's `equal' can compare list elements), write new data
@@ -165,31 +221,37 @@ version control repo, return the path of repo root folder."
 	    )
 	  (recentz-get type)))
 
+(defun recentz-push-proxy (type path)
+  "Adapter for TRAMP and regular local file."
+  (if (recentz-path-is-tramp-path path)
+      (setq type (intern (format "tramp-%s" type))))
+  (recentz-push type path))
+
 (defun recentz--hookfn-find-file ()
-  (recentz-push 'files (buffer-file-name))
+  (recentz-push-proxy 'files (buffer-file-name))
   ;; If current file is inside a VCS repo, also add the repo directory as project.
   (let* ((cur-dir (file-name-directory (buffer-file-name)))
 	 (repo-dir (recentz-find-vc-root cur-dir)))
     (if repo-dir
-	(recentz-push 'projects repo-dir))))
+	(recentz-push-proxy 'projects repo-dir))))
 
 (defun recentz--hookfn-dired (&optional dirpath)
   (if dirpath
       (setq dirpath (expand-file-name dirpath))
     (setq dirpath default-directory))
-  (recentz-push 'directories dirpath)
+  (recentz-push-proxy 'directories dirpath)
   (let ((vc-root (recentz-find-vc-root dirpath)))
     (if vc-root
-	(recentz-push 'projects vc-root))))
+	(recentz-push-proxy 'projects vc-root))))
 
 (defun recentz--hookfn-vc (&optional dirpath)
   (if dirpath
       (setq dirpath (expand-file-name dirpath))
     (setq dirpath default-directory))
-  (recentz-push 'directories dirpath)
+  (recentz-push-proxy 'directories dirpath)
   (let ((vc-root (recentz-find-vc-root dirpath)))
     (if vc-root
-	(recentz-push 'projects vc-root))))
+	(recentz-push-proxy 'projects vc-root))))
 
 (defun recentz--hookfn-emacs-startup ()
   ;;   (message "====================
@@ -232,6 +294,27 @@ version control repo, return the path of repo root folder."
   (interactive)
   (require 'ido)
   (find-file (ido-completing-read "Recentz Directories: " (recentz-get 'directories) nil t)))
+
+;;;###autoload
+(defun recentz-tramp-files ()
+  "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (require 'ido)
+  (find-file (ido-completing-read "Recentz Files: " (recentz-get 'tramp-files) nil t)))
+
+;;;###autoload
+(defun recentz-tramp-projects ()
+  "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (require 'ido)
+  (find-file (ido-completing-read "Recentz Projects: " (recentz-get 'tramp-projects) nil t)))
+
+;;;###autoload
+(defun recentz-tramp-directories ()
+  "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (require 'ido)
+  (find-file (ido-completing-read "Recentz Directories: " (recentz-get 'tramp-directories) nil t)))
 
 (defmacro recentz-ensure-helm (&rest body)
   `(if (not (featurep 'helm-core))
@@ -278,5 +361,45 @@ version control repo, return the path of repo root folder."
 		    )
 	 :buffer "*Recentz*"
 	 :prompt "Recent directories: ")))
+
+;;;###autoload
+(defun helm-recentz-tramp-files ()
+  "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (recentz-ensure-helm
+   (helm :sources (helm-build-sync-source "Recentz Files"
+		    :candidates (lambda () (recentz-get 'files))
+		    :volatile t
+		    :action (lambda (str) (find-file str))
+		    )
+	 :buffer "*Recentz*"
+	 :prompt "Recent files: ")))
+
+;;;###autoload
+(defun helm-recentz-tramp-projects ()
+  "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (recentz-ensure-helm
+   (helm :sources (helm-build-sync-source "Recentz Projects"
+		    :candidates (lambda () (recentz-get 'projects))
+		    :volatile t
+		    :action (lambda (str) (find-file str))
+		    )
+	 :buffer "*Recentz*"
+	 :prompt "Recent projects: ")))
+
+;;;###autoload
+(defun helm-recentz-tramp-directories ()
+  "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (recentz-ensure-helm
+   (helm :sources (helm-build-sync-source "Recentz Directories"
+		    :candidates (lambda () (recentz-get 'directories))
+		    :volatile t
+		    :action (lambda (str) (find-file str))
+		    )
+	 :buffer "*Recentz*"
+	 :prompt "Recent directories: ")))
+
 
 (provide 'recentz)
