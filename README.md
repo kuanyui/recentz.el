@@ -15,6 +15,10 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 - Always synchronized recents list between multiple Emacs instances.
 - Always automatically removes items which is no longer existed in file system.
 - Recorded lists: files / directories / projects (directories controlled by VC, ex: `git`)
+<!--
+- A minimalized alternative of `project-find-file` / `projectile-find-file` (the recently opened files will be on top of the list)
+(global-set-key (kbd "C-x C-S-p") 'recentz-find-file-in-project)  ;; Optional. This feature requires external program `ag` (the_silver_searcher)
+-->
 
 > [!NOTE]
 > 1. `Recentz` always check the availabiliy (via `file-exists-p`) of each items in the list (and remove the non-existent-anymore items), so it should be better to run on SSD if you set a large items amount limit.
