@@ -58,10 +58,10 @@
 (require 'cl-lib)
 (require 'pp)
 
-(defvar recentz-vc-directory-names '(".git" ".hg" ".svn" ".bzr")
+(defvar recentz-vc-directory-names '(".git" ".hg" ".bzr")
   "The folder name or file name to detect if a directory path is a
-VC-controlled folder. If so, this folder will be seems as a
-project.")
+  VC-controlled folder. If so, this folder will be seems as a
+  project.")
 (defvar recentz-data-file-path (file-name-concat user-emacs-directory ".recentz-data")
   "The path to store recents list file."
   )
@@ -86,7 +86,7 @@ project.")
     "\\.git/objects/"
     )
   "Exclude the item from recents list if its path match any of the
-regexp patterns.")
+  regexp patterns.")
 
 (defvar recentz-tramp-path-patterns
   '(
@@ -102,29 +102,32 @@ regexp patterns.")
     "^/\\(gdrive\\|nextcloud\\|sftp\\):"
     )
   "Remote / tramp file paths list, ex: TRAMP, SSH, sudo, rsync.
-    These file pathes will be stored in an independent list, and
-    recentz will never check the availability of them.")
+  These file pathes will be stored in an independent list, and
+  recentz will never check the availability of them.")
 
 (defvar recentz-data-file-modes #o666
   "The file permission (file mode) of data-file (See
 						 `recent-data-file-path'). This is important if you mean to let
-    multiple users write the same data-file, or TRAMP... etc."
+  multiple users write the same data-file, or TRAMP... etc."
   )
 
-(defun recentz-is-vc-root (dirpath)
+(defun recentz-is-vc-root (&optional dirpath)
+  (if (null dirpath) (setq dirpath default-directory))
   (cl-some (lambda (vc-dir-name)
 	     (file-exists-p (file-name-concat dirpath vc-dir-name)))
 	   recentz-vc-directory-names))
 
-(defun recentz-find-vc-root (filepath)
+(defun recentz-find-vc-root (&optional filepath)
   "If the FILEPATH (or dirpath) is inside in, or itself is, a
-    version control repo, return the path of repo root folder."
-  (cl-some (lambda (vc-dir-name)
-	     (locate-dominating-file filepath vc-dir-name))
-	   recentz-vc-directory-names))
+  version control repo, return the path of repo root folder."
+  (if (null filepath) (setq filepath default-directory))
+  (let ((path (cl-some (lambda (vc-dir-name)
+			 (locate-dominating-file filepath vc-dir-name))
+		       recentz-vc-directory-names)))
+    (if path (recentz-formalize-path path))))
 
 (defun recentz-formalize-path (path &optional skip-tramp)
-  "If PATH is a dir, append a slash."
+  "1. Expand \"~\" . 2. if PATH is a dir, append a slash."
   (setq path (expand-file-name path))
   (cond ((and skip-tramp (recentz-path-is-tramp-path path))
 	 path)
@@ -441,6 +444,50 @@ path exists or not)"
 		    )
 	 :buffer "*Recentz*"
 	 :prompt "Recent directories via TRAMP: ")))
+
+
+(defun recentz-call-process-to-string-list (program &rest args)
+  "`shell-command-to-string' is too slow for simple task, so use this."
+  (with-temp-buffer
+    (apply #'call-process program (append '(nil t nil) args))
+    ;; Remove the trailing empty line
+    (if (> (point-max) 1)
+	(delete-region (1- (point-max)) (point-max)))
+    (split-string (buffer-string) "\n")))
+
+(defun recentz-get-file-list-in-project (patt &optional dir)
+  "Returns a string list, all are relative path. Never starts with slash."
+  (let* ((vc-root (recentz-find-vc-root dir))
+	 (default-directory vc-root)
+	 (ignore-args (mapcan (lambda (x) (list "--ignore" (concat x "/"))) recentz-vc-directory-names))
+	 ;; --hidden:   include files starts with .
+	 (all-files-in-project-relpath (apply #'recentz-call-process-to-string-list `("ag" "--nocolor" "--hidden" ,@ignore-args "--filename-pattern" ,(shell-quote-argument patt))))
+	 (recent-files-abspath (cl-remove-if-not (lambda (r) (string-prefix-p vc-root r)) (recentz-get 'files)))
+	 (recent-files-relpath (mapcar (lambda (x) (substring x (length vc-root))) recent-files-abspath))
+	 (final-files-relpath (append recent-files-relpath (cl-remove-if (lambda (x) (member x recent-files-relpath)) all-files-in-project-relpath))))
+    final-files-relpath))
+
+(defun recentz-find-file-by-relpath (relative-path)
+  "Open file by calling `find-file'"
+  (let ((abs-path (concat (recentz-find-vc-root) relative-path)))
+    (find-file abs-path)))
+
+;;;###autoload
+(defun recentz-find-file-in-project (&optional dir)
+  (interactive)
+  (let ((vc-root (recentz-find-vc-root (or dir default-directory))))
+    (if vc-root
+        (helm :sources (helm-build-sync-source "recentz-find-file-in-project"
+                         :candidates (lambda () (recentz-get-file-list-in-project helm-pattern vc-root))
+                         :volatile t
+                         :action #'recentz-find-file-by-relpath
+                         :candidate-number-limit 300
+                         :header-name (lambda (_) (format "Project: %s"
+							  (file-name-base (directory-file-name vc-root))))
+                         )
+	      :buffer "*Recentz in Project*"
+	      :prompt "File name in project: ")
+      (message "Not in a project. Abort."))))
 
 
 (provide 'recentz)
