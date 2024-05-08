@@ -68,8 +68,11 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 > ```
 >
 > #### For Helm Users
->
-> Nothing special extra setting needs. Helm itself has already included Universe by default.
+> ```emacs-lisp
+> ;; Behavior when helm splits frame
+> (setq helm-always-two-windows nil)
+> (setq helm-split-window-inside-p t)
+> ```
 
 You may also want to add `.recentz-data` into `.gitignore`, if you manage your `.emacs.d` via `git`:
 

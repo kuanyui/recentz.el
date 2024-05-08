@@ -306,60 +306,68 @@ path exists or not)"
   )
 (add-hook 'emacs-startup-hook 'recentz--hookfn-emacs-startup)
 
+(defun recentz-ido-completing-read (prompt type)
+  (require 'ido)
+  (let ((file-path (ido-completing-read "Recentz Files: " (recentz-get type) nil t)))
+    (recentz-push type file-path)
+    file-path))
+
 ;;;###autoload
 (defun recentz-files (&optional arg)
   "List recently opened files."
   (interactive "P")
-  (require 'ido)
   (if arg
       (recentz-tramp-files)
-    (find-file (ido-completing-read "Recentz Files: " (recentz-get 'files) nil t))))
+    (find-file (recentz-ido-completing-read "Recentz Files: " 'files))))
 
 ;;;###autoload
 (defun recentz-projects (&optional arg)
   "List recently opened projects."
   (interactive "P")
-  (require 'ido)
   (if arg
       (recentz-tramp-projects)
-    (find-file (ido-completing-read "Recentz Projects: " (recentz-get 'projects) nil t))))
+    (find-file (recentz-ido-completing-read "Recentz Projects: " 'projects))))
 
 ;;;###autoload
 (defun recentz-directories (&optional arg)
   "List recently opened directories."
   (interactive "P")
-  (require 'ido)
   (if arg
       (recentz-tramp-directories)
-    (find-file (ido-completing-read "Recentz Directories: " (recentz-get 'directories) nil t))))
+    (find-file (recentz-ido-completing-read "Recentz Directories: " 'directories))))
 
 ;;;###autoload
 (defun recentz-tramp-files ()
   "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (require 'ido)
-  (find-file (ido-completing-read "Recentz Files in TRAMP: " (recentz-get 'tramp-files) nil t)))
+  (find-file (recentz-ido-completing-read "Recentz Files in TRAMP: " 'tramp-files)))
 
 ;;;###autoload
 (defun recentz-tramp-projects ()
   "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (require 'ido)
-  (find-file (ido-completing-read "Recentz Projects in TRAMP: " (recentz-get 'tramp-projects) nil t)))
+  (find-file (recentz-ido-completing-read "Recentz Projects in TRAMP: " 'tramp-projects)))
 
 ;;;###autoload
 (defun recentz-tramp-directories ()
   "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (require 'ido)
-  (find-file (ido-completing-read "Recentz Directories in TRAMP: " (recentz-get 'tramp-directories) nil t)))
+  (find-file (recentz-ido-completing-read "Recentz Directories in TRAMP: " 'tramp-directories)))
 
-(defmacro recentz-ensure-helm (&rest body)
-  `(if (not (featurep 'helm-core))
-       (message "This feature requires helm-core, but it's not installed on your Emacs yet. Please install helm, or use ido version (M-x recentz-*) instead.")
-     (progn
-       (require 'helm-core)
-       ,@body)))
+(defun recentz-helm (source-name prompt type)
+  (if (not (featurep 'helm-core))
+      (message "This feature requires helm-core, but it's not installed on your Emacs yet. Please install helm, or use ido version (M-x recentz-*) instead.")
+    (progn
+      (require 'helm-core)
+      (let ((file-path (helm :sources (helm-build-sync-source source-name
+					:candidates (lambda () (recentz-get type))
+					:volatile t
+					:action (lambda (str) (find-file str))
+					)
+			     :buffer "*Recentz*"
+			     :prompt prompt)))
+	(recentz-push type file-path)
+	file-path))))
 
 ;;;###autoload
 (defun helm-recentz-files (&optional arg)
@@ -367,14 +375,7 @@ path exists or not)"
   (interactive "P")
   (if arg
       (helm-recentz-tramp-files)
-    (recentz-ensure-helm
-     (helm :sources (helm-build-sync-source "Recentz Files"
-		      :candidates (lambda () (recentz-get 'files))
-		      :volatile t
-		      :action (lambda (str) (find-file str))
-		      )
-	   :buffer "*Recentz*"
-	   :prompt "Recent files: "))))
+    (recentz-helm "recentz-source-files" "Recent files: " 'files)))
 
 ;;;###autoload
 (defun helm-recentz-projects (&optional arg)
@@ -382,14 +383,7 @@ path exists or not)"
   (interactive "P")
   (if arg
       (helm-recentz-tramp-projects)
-    (recentz-ensure-helm
-     (helm :sources (helm-build-sync-source "Recentz Projects"
-		      :candidates (lambda () (recentz-get 'projects))
-		      :volatile t
-		      :action (lambda (str) (find-file str))
-		      )
-	   :buffer "*Recentz*"
-	   :prompt "Recent projects: "))))
+    (recentz-helm "recentz-source-projects" "Recent projects: " 'projects)))
 
 ;;;###autoload
 (defun helm-recentz-directories (&optional arg)
@@ -397,53 +391,25 @@ path exists or not)"
   (interactive "P")
   (if arg
       (helm-recentz-tramp-directories)
-    (recentz-ensure-helm
-     (helm :sources (helm-build-sync-source "Recentz Directories"
-		      :candidates (lambda () (recentz-get 'directories))
-		      :volatile t
-		      :action (lambda (str) (find-file str))
-		      )
-	   :buffer "*Recentz*"
-	   :prompt "Recent directories: "))))
+    (recentz-helm "recentz-source-directories" "Recent directories: " 'directories)))
 
 ;;;###autoload
 (defun helm-recentz-tramp-files ()
   "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Files in TRAMP"
-		    :candidates (lambda () (recentz-get 'files))
-		    :volatile t
-		    :action (lambda (str) (find-file str))
-		    )
-	 :buffer "*Recentz*"
-	 :prompt "Recent files via TRAMP: ")))
+  (recentz-helm "recentz-source-files-in-tramp" "Recent files via TRAMP: " 'files))
 
 ;;;###autoload
 (defun helm-recentz-tramp-projects ()
   "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Projects in TRAMP"
-		    :candidates (lambda () (recentz-get 'projects))
-		    :volatile t
-		    :action (lambda (str) (find-file str))
-		    )
-	 :buffer "*Recentz*"
-	 :prompt "Recent projects via TRAMP: ")))
+  (recentz-helm "recentz-source-projects-in-tramp" "Recent projects via TRAMP: " 'projects))
 
 ;;;###autoload
 (defun helm-recentz-tramp-directories ()
   "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (recentz-ensure-helm
-   (helm :sources (helm-build-sync-source "Recentz Directories in TRAMP"
-		    :candidates (lambda () (recentz-get 'directories))
-		    :volatile t
-		    :action (lambda (str) (find-file str))
-		    )
-	 :buffer "*Recentz*"
-	 :prompt "Recent directories via TRAMP: ")))
+  (recentz-helm "recentz-source-directories-in-tramp" "Recent directories via TRAMP: " 'directories))
 
 
 (defun recentz-call-process-to-string-list (program &rest args)
