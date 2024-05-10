@@ -362,7 +362,7 @@ path exists or not)"
       (let ((file-path (helm :sources (helm-build-sync-source source-name
 					:candidates (lambda () (recentz-get type))
 					:volatile t
-					:action (lambda (str) (find-file str))
+					:action (lambda (str) (find-file str) str)   ;; Returns str to helm explicitly, otherwise `find-file' will returns something like #<buffer recentz.el>
 					)
 			     :buffer "*Recentz*"
 			     :prompt prompt)))
