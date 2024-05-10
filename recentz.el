@@ -309,7 +309,7 @@ path exists or not)"
 (defun recentz-ido-completing-read (prompt type)
   (require 'ido)
   (let ((file-path (ido-completing-read "Recentz Files: " (recentz-get type) nil t)))
-    (recentz-push type file-path)
+    (if file-path (recentz-push type file-path))
     file-path))
 
 ;;;###autoload
@@ -366,7 +366,7 @@ path exists or not)"
 					)
 			     :buffer "*Recentz*"
 			     :prompt prompt)))
-	(recentz-push type file-path)
+	(if file-path (recentz-push type file-path))
 	file-path))))
 
 ;;;###autoload
