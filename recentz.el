@@ -137,7 +137,9 @@
 	 path)))
 
 (defmacro recentz-ensure-data-file-permission (&rest body)
-  `(cond ((file-directory-p recentz-data-file-path)
+  `(cond ((not (file-exists-p recentz-data-file-path))
+	  (recentz--write-data-to-file (recentz-fix-data nil)))
+	 ((file-directory-p recentz-data-file-path)
 	  (message "You has set `recentz-data-file-path' as \"%s\" but it is a directory (expected a text file), please resolve it manually." recentz-data-file-path))
 	 ((not (file-readable-p recentz-data-file-path))
 	  (message "You have no permission to read recentz's data-file (\"%s\", defined in variable \"recentz-data-file-path\"), please resolve it manually." recentz-data-file-path))
