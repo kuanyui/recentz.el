@@ -399,19 +399,19 @@ path exists or not)"
 (defun helm-recentz-tramp-files ()
   "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (recentz-helm "recentz-source-files-in-tramp" "Recent files via TRAMP: " 'files))
+  (recentz-helm "recentz-source-files-in-tramp" "Recent files via TRAMP: " 'tramp-files))
 
 ;;;###autoload
 (defun helm-recentz-tramp-projects ()
   "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (recentz-helm "recentz-source-projects-in-tramp" "Recent projects via TRAMP: " 'projects))
+  (recentz-helm "recentz-source-projects-in-tramp" "Recent projects via TRAMP: " 'tramp-projects))
 
 ;;;###autoload
 (defun helm-recentz-tramp-directories ()
   "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (recentz-helm "recentz-source-directories-in-tramp" "Recent directories via TRAMP: " 'directories))
+  (recentz-helm "recentz-source-directories-in-tramp" "Recent directories via TRAMP: " 'tramp-directories))
 
 
 (defun recentz-call-process-to-string-list (program &rest args)
