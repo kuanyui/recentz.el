@@ -109,7 +109,9 @@
   multiple users write the same data-file, or TRAMP... etc."
   )
 
-(defvar recentz-ui (if (featurep 'helm-core) 'helm 'ido)
+(defun recentz-helm-exist-p () (locate-library "helm"))
+
+(defvar recentz-ui (if (recentz-helm-exist-p) 'helm 'ido)
   "The prefered UI (frontend for completion). Available choices: `helm', `ido'
 
 - Helm requires manual installation, but itself has a built-in fuzzy-search engine. (recommended)
@@ -362,10 +364,10 @@ path exists or not)"
   (find-file (recentz-ido-completing-read "Recentz Directories in TRAMP: " 'tramp-directories)))
 
 (defun recentz-helm-completing-find-file (source-name prompt type)
-  (if (not (featurep 'helm-core))
+  (if (not (recentz-helm-exist-p))
       (message "This feature requires helm-core, but it's not installed on your Emacs yet. Please install helm, or use ido version (M-x recentz-*) instead.")
     (progn
-      (require 'helm-core)
+      (require 'helm)
       (let ((file-path (helm :sources (helm-build-sync-source source-name
 					:candidates (lambda () (recentz-get type))
 					:volatile t
@@ -514,4 +516,4 @@ path exists or not)"
   (interactive)
   (funcall (intern (format "recentz--%s-tramp-directories" recentz-ui))))
 
-  (provide 'recentz)
+(provide 'recentz)

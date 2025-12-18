@@ -30,7 +30,8 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 (require 'recentz)
 (setq recentz-ignore-path-patterns '("/COMMIT_EDITMSG$" "~$" "/node_modules/"))
 
-;; Choose prefered completion UI. Available options: 'helm, 'ido
+;; Force choose prefered completion UI. Available options: 'helm, 'ido
+;; If helm is available, recentz will auto choose it by default.
 (setq recentz-ui 'helm)
 
 (global-set-key (kbd "C-x C-r") 'recentz-files)   ;; Add universal argument prefix "C-u" (that is "C-u C-x C-r") can open the recent TRAMP-opened files instead.
