@@ -9,7 +9,7 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 
 ### Characteristics
 
-- Minimalized, no confusing behavior, no extra dependency (only relys on `cl-lib`). Fuzzy search is provided by Ido (Emacs built-in) or Helm (need installation).
+- Minimalized, no confusing behavior, no extra dependency.
 - Never caches, even never stores anything in memory. (Everything are stored as a plaintext file in `~/.emacs.d/.recentz-data`.)
 - Never loses any item after exiting Emacs. (Even an unexpected exit or crash)
 - Always synchronized recents list between multiple Emacs instances.
@@ -30,7 +30,7 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 (require 'recentz)
 (setq recentz-ignore-path-patterns '("/COMMIT_EDITMSG$" "~$" "/node_modules/"))
 
-;; Force choose prefered completion UI. Available options: 'helm, 'ido
+;; Force choose prefered completion UI. Available options: 'vanilla (default), 'helm, 'ido
 ;; If helm is available, recentz will auto choose it by default.
 (setq recentz-ui 'helm)
 
@@ -43,12 +43,21 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 ```
 
 > [!TIP]
-> 1. Ido and Helm have different UI and searching behaviors, you can try both and choose the one you prefer.
-> 2. You don't need to enable `ido-mode` nor `helm-mode` globally. `recentz` only use their minibuffer completion feature, for easily filtering candidates list.
+> You don't need to enable `ido-mode` nor `helm-mode` globally. `recentz` only use their minibuffer completion feature, for easily filtering candidates list.
 >
+> The followings are some recommended settings for various users:
+>
+> #### For Most Users
+> - If you have already been using `vertico` + `orderless`, just use it, they will enhance the Emacs native `completing-read`. You don't need to do anything.
+>   > - `vertico`: show candidates vertically.
+>   > - `orderless`: fuzzy matching (still).
+> - If you are using >= Emacs 28, a Emacs native fuzzy-matching + vertical completion global minor-mode is available. (⚠️ Warning: If you enable `fido-vertical-mode`,)
+> ```emacs-lisp
+> (fido-vertical-mode
+> ```
 > #### For Ido Users
+> Fuzzy matching is provided by Ido itself (`ido-enable-flex-matching`). You don't need to do anything for fuzzy matching.
 >
-> Recommanded setups:
 > ```emacs-lisp
 > ;; Show Ido items vertically
 > (setq ido-decorations (quote ("\n-> " "" "\n   " "\n   ..." "[" "]" " [No match]" " [Matched]" " [Not readable]" " [Too big]" " [Confirm]")))
@@ -61,8 +70,8 @@ A simple and stupid recents list, without any confusing behaviors -- just do wha
 >   (define-key ido-completion-map (kbd "<up>")   'ido-prev-match))
 > (add-hook 'ido-setup-hook #'my-ido-bind-key-for-vertical)
 > ```
->
 > #### For Helm Users
+> Fuzzy matching is enabled by default. You don't need to do anything for fuzzy matching.
 > ```emacs-lisp
 > ;; Behavior when helm splits frame
 > (setq helm-always-two-windows nil)

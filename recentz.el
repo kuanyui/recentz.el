@@ -40,9 +40,8 @@
 ;;     (require 'recentz)
 ;;     (setq recentz-ignore-path-patterns '("/COMMIT_EDITMSG$" "~$" "/node_modules/"))
 ;;
-;;     ;; Choose prefered completion UI. Available options: 'helm, 'ido
-;;     ;; (if helm is installed, helm will be selected by default.)
-;;     (setq recentz-ui 'ido)
+;;     ;; Choose prefered completion UI. Available options: nil (default, same as 'vanilla), 'helm, 'ido
+;;     (setq recentz-ui 'vanilla)
 ;;
 ;;     (global-set-key (kbd "C-x C-r") 'recentz-files)   ;; Add universal argument prefix "C-u" (that is "C-u C-x C-r") can open the recent TRAMP-opened files instead.
 ;;     (global-set-key (kbd "C-x C-d") 'recentz-directories)
@@ -111,8 +110,8 @@
 
 (defun recentz-helm-exist-p () (locate-library "helm"))
 
-(defvar recentz-ui (if (recentz-helm-exist-p) 'helm 'ido)
-  "The prefered UI (frontend for completion). Available choices: `helm', `ido'
+(defvar recentz-ui (if (recentz-helm-exist-p) 'helm 'vanilla)
+  "The prefered UI (frontend for completion). Available choices: `vanilla', `helm', `ido'
 
 - Helm requires manual installation, but itself has a built-in fuzzy-search engine. (recommended)
 - Ido is Emacs built-in package. Itself provides basic string matching, but more powerful fuzzy-search requires other 3rd party package.
@@ -315,9 +314,87 @@ path exists or not)"
   )
 (add-hook 'emacs-startup-hook 'recentz--hookfn-emacs-startup)
 
+;; ======================================================
+;; vanilla (Emacs native) completing-read
+;; (Recommend to enable `icomplete-mode')
+;; ======================================================
+
+(defun recentz-vanilla-completing-read (prompt type)
+  "Basic `completing-read'."
+  (let* ((completion-styles (let ((tmp '(basic)))
+			      (if (assoc 'orderless completion-styles-alist)
+				  (push 'orderless tmp))
+			      tmp))
+	 (completions-sort nil)
+	 (completion-cycle-threshold nil)
+	 (vertico-sort-function nil)
+	 ;; (file-path (completing-read "Recentz Files: " (recentz-get type) nil t))
+	 ;; FIXME: This is trying to keep the ordering of initial state of candidate list when `fido-vertical-mode` or `icomplete-mode` is enabled.
+	 ;;        However, the ordering still becomes chaos after typing the first character...
+	 (candidates (recentz-get type))
+	 (file-path (completing-read
+		     "Recentz Files: "
+		     (lambda (string pred action)
+		       (if (eq action 'metadata)
+			   '(metadata (display-sort-function . identity)
+				      (cycle-sort-function . identity))
+			 (complete-with-action action candidates string pred)))
+		     nil t))
+	 )
+    (if file-path (recentz-push type file-path))
+    file-path))
+
+;;;###autoload
+(defun recentz--vanilla-files (&optional arg)
+  "[Ido] List recently opened files."
+  (interactive "P")
+  (if arg
+      (recentz-tramp-files)
+    (find-file (recentz-vanilla-completing-read "Recentz Files: " 'files))))
+
+;;;###autoload
+(defun recentz--vanilla-projects (&optional arg)
+  "[Ido] List recently opened projects."
+  (interactive "P")
+  (if arg
+      (recentz-tramp-projects)
+    (find-file (recentz-vanilla-completing-read "Recentz Projects: " 'projects))))
+
+;;;###autoload
+(defun recentz--vanilla-directories (&optional arg)
+  "[Ido] List recently opened directories."
+  (interactive "P")
+  (if arg
+      (recentz-tramp-directories)
+    (find-file (recentz-vanilla-completing-read "Recentz Directories: " 'directories))))
+
+;;;###autoload
+(defun recentz--vanilla-tramp-files ()
+  "[Ido] List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (find-file (recentz-vanilla-completing-read "Recentz Files in TRAMP: " 'tramp-files)))
+
+;;;###autoload
+(defun recentz--vanilla-tramp-projects ()
+  "[Ido] List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (find-file (recentz-vanilla-completing-read "Recentz Projects in TRAMP: " 'tramp-projects)))
+
+;;;###autoload
+(defun recentz--vanilla-tramp-directories ()
+  "[Ido] List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
+  (interactive)
+  (find-file (recentz-vanilla-completing-read "Recentz Directories in TRAMP: " 'tramp-directories)))
+
+
+;; ======================================================
+;; Ido
+;; ======================================================
+
 (defun recentz-ido-completing-read (prompt type)
   (require 'ido)
-  (let ((file-path (ido-completing-read "Recentz Files: " (recentz-get type) nil t)))
+  (let* ((ido-enable-flex-matching t)
+	 (file-path (ido-completing-read "Recentz Files: " (recentz-get type) nil t)))
     (if file-path (recentz-push type file-path))
     file-path))
 
@@ -362,6 +439,11 @@ path exists or not)"
   "[Ido] List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
   (find-file (recentz-ido-completing-read "Recentz Directories in TRAMP: " 'tramp-directories)))
+
+
+;; ======================================================
+;; Helm
+;; ======================================================
 
 (defun recentz-helm-completing-find-file (source-name prompt type)
   (if (not (recentz-helm-exist-p))
@@ -420,6 +502,9 @@ path exists or not)"
   (interactive)
   (recentz-helm-completing-find-file "recentz-source-directories-in-tramp" "Recent directories via TRAMP: " 'tramp-directories))
 
+;; ======================================================
+;; Simple Projectile alternative
+;; ======================================================
 
 (defun recentz-call-process-to-string-list (program &rest args)
   "`shell-command-to-string' is too slow for simple task, so use this."
@@ -466,8 +551,15 @@ path exists or not)"
 
 
 ;; ======================================================
-;; Alias for helm- namespace convention
+;; Alias for helm / ido namespace convention
 ;; ======================================================
+
+(defalias 'ido-recentz-files                'recentz--ido-files)
+(defalias 'ido-recentz-projects             'recentz--ido-projects)
+(defalias 'ido-recentz-directories          'recentz--ido-directories)
+(defalias 'ido-recentz-tramp-files          'recentz--ido-tramp-files)
+(defalias 'ido-recentz-tramp-projects       'recentz--ido-tramp-projects)
+(defalias 'ido-recentz-tramp-directories    'recentz--ido-tramp-directories)
 
 (defalias 'helm-recentz-files                'recentz--helm-files)
 (defalias 'helm-recentz-projects             'recentz--helm-projects)
@@ -480,40 +572,46 @@ path exists or not)"
 ;; ======================================================
 ;; Entry points (auto select helm / ido)
 ;; ======================================================
+(defun recentz--get-ui ()
+  (cond
+   ((eq recentz-ui 'helm) 'helm)
+   ((eq recentz-ui 'ido) 'ido)
+   (t 'vanilla)))
+
 ;;;###autoload
 (defun recentz-files (&optional arg)
   "List recently opened files."
   (interactive "P")
-  (funcall (intern (format "recentz--%s-files" recentz-ui)) arg))
+  (funcall (intern (format "recentz--%s-files" (recentz--get-ui))) arg))
 
 ;;;###autoload
 (defun recentz-projects (&optional arg)
   "List recently opened projects."
   (interactive "P")
-  (funcall (intern (format "recentz--%s-projects" recentz-ui)) arg))
+  (funcall (intern (format "recentz--%s-projects" (recentz--get-ui))) arg))
 
 ;;;###autoload
 (defun recentz-directories (&optional arg)
   "List recently opened directories."
   (interactive "P")
-  (funcall (intern (format "recentz--%s-directories" recentz-ui)) arg))
+  (funcall (intern (format "recentz--%s-directories" (recentz--get-ui))) arg))
 
 ;;;###autoload
 (defun recentz-tramp-files ()
   "List recent files opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (funcall (intern (format "recentz--%s-tramp-files" recentz-ui))))
+  (funcall (intern (format "recentz--%s-tramp-files" (recentz--get-ui)))))
 
 ;;;###autoload
 (defun recentz-tramp-projects ()
   "List recent projects opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (funcall (intern (format "recentz--%s-tramp-projects" recentz-ui))))
+  (funcall (intern (format "recentz--%s-tramp-projects" (recentz--get-ui)))))
 
 ;;;###autoload
 (defun recentz-tramp-directories ()
   "List recent directories opened via TRAMP. Notice this will not automatically clear inexistent item from list."
   (interactive)
-  (funcall (intern (format "recentz--%s-tramp-directories" recentz-ui))))
+  (funcall (intern (format "recentz--%s-tramp-directories" (recentz--get-ui)))))
 
 (provide 'recentz)

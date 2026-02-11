@@ -1,0 +1,7 @@
+(let* ((dir (file-name-directory (or load-file-name buffer-file-name)))
+       (recentz-file (expand-file-name "recentz.el" dir)))
+  (load recentz-file nil t)
+  (setq recentz-ui 'vanilla)
+  ;; (fido-vertical-mode t)
+  (icomplete-mode t)
+  (global-set-key (kbd "C-x C-r") #'recentz-files))
